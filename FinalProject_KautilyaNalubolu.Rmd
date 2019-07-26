@@ -1,0 +1,203 @@
+---
+title: "Final Project"
+author: "Kautilya Nalubolu"
+date: "December 2, 2014"
+output: html_document
+---
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r, echo = FALSE}
+# Run all the libraries and import the NLSY data
+library(MASS)
+library(plyr)
+library(lattice)
+library(ggplot2)
+library(knitr)
+library(reshape)
+
+NLSY79 <- read.csv("http://www.andrew.cmu.edu/user/achoulde/94842/final_project/nlsy79_base/nlsy79_base.csv", header = TRUE)
+
+nlsy_ed <- read.csv("http://www.andrew.cmu.edu/user/achoulde/94842/final_project/nlsy79_education/education_vars.csv", header=TRUE)
+
+# The NLSY79 is a nationally representative sample of 12,686 young men and women who were 14-22 years old when they were first surveyed in 1979. These individuals were interviewed annually through 1994 and are currently interviewed on a biennial basis. Since their first interview, many of the respondents have made transitions from school to work, and from their parents' homes to being parents and homeowners.
+
+```
+
+```{r}
+# All the coulmn names are converted to more descriptive names. 
+colnames(NLSY79) <-  c("age.death.biological.father", "age.death.biological.mother", "CASEID", "race", "sex", "poverty.status.1978", "age.first.stopped.by.police", "ever.charged.illegal.activity", "times.charged.illegal.activity", "age.first.illegal.activity", "ever.charged.illegal.activity.adult.court", "class.worker.job.1983", "poverty.status.1987", "class.worker.job.1989", "family.net.worth.1989", "class.worker.job.1993", "times.cocaine.used", "times.crack.cocaine.used", "total.income.2000", "net.family.income.2000", "class.worker.job.2002", "total.income.2004", "family.net.worth.2004", "net.family.income.2004", "spouse.partner.2004", "age.first.marriage", "spouse.partner.2010", "family.net.worth.2008", "business.industry.type", "class.worker.job.2012", "biological.children", "total.income.2012", "net.family.income.2012", "marital.status.2012", "jobs.2012")
+
+colnames(nlsy_ed) <- c("CASEID", "Reason.left.school", "HGC", "SAMPLE_RACE", "SAMPLE_SEX", "ENROLLMTREV79", "Highest.grade.attended", "HGC.survey year", "ENROLLMTREV89")
+
+nlsy_ed <- data.frame(nlsy_ed)
+```
+
+
+```{r}
+# The Mapvalue function is used to stardardise all the missing values as NA in both datasets.  Also, all the factors of the variables are  coded descripively
+NLSY79 <- transform(NLSY79, 
+        age.death.biological.father = as.numeric(mapvalues(NLSY79$age.death.biological.father, c(-4, -2, -1), rep(NA, 3))), 
+        age.death.biological.mother = as.numeric(mapvalues(NLSY79$age.death.biological.mother, c(-4, -2, -1), rep(NA, 3))),   
+        Poverty.status.1978 = as.factor(mapvalues(NLSY79$poverty.status.1978, c(-3), rep("NA", 1))), 
+        age.first.stopped.by.police = as.numeric(mapvalues(NLSY79$age.first.stopped.by.police, c(-3, -4, -5), rep(NA, 3))),
+        ever.charged.illegal.activity = as.factor(mapvalues(NLSY79$ever.charged.illegal.activity, c(-5, -3), rep("NA", 2))),
+        times.charged.illegal.activity = as.numeric(mapvalues(NLSY79$times.charged.illegal.activity, c(-3, -4, -5), rep(NA, 3))),
+        age.first.illegal.activity = as.factor(mapvalues(NLSY79$age.first.illegal.activity, c(-5, -4, -3), rep("NA", 3))),
+        ever.charged.illegal.activity.adult.court = as.factor(mapvalues(NLSY79$ever.charged.illegal.activity.adult.court, c(-5, -4, -3), rep("NA", 3))),
+        class.worker.job.1983 = as.factor(mapvalues(NLSY79$class.worker.job.1983, c(-5, -4), rep("NA", 2))),
+        poverty.status.1987 = as.factor(mapvalues(NLSY79$poverty.status.1987, c(-5, -3), rep("NA", 2))),
+       class.worker.job.1989 = as.factor(mapvalues(NLSY79$class.worker.job.1989, c(-5, -4, -2, -3), rep("NA", 4))),
+       family.net.worth.1989 = as.factor(mapvalues(NLSY79$family.net.worth.1989, c(-5, -1), rep("NA", 2))),
+      class.worker.job.1993 = as.factor(mapvalues(NLSY79$class.worker.job.1993, c(-5, -4, -2), rep("NA", 3))), 
+      times.cocaine.used = as.factor(mapvalues(NLSY79$times.cocaine.used, c(-5, -4, -2, -1), rep("NA", 4))), 
+      times.crack.cocaine.used = as.factor(mapvalues(NLSY79$times.crack.cocaine.used, c(-5, -4, -2, -1), rep("NA", 4))),  
+   total.income.2000 = as.numeric(mapvalues(NLSY79$total.income.2000, c(-5, -3, -2, -1), rep(NA, 4))), 
+  net.family.income.2000 = as.factor(mapvalues(NLSY79$net.family.income.2000, c(-5, -3, -2, -1), rep("NA", 4))),
+  class.worker.job.2002 = as.factor(mapvalues(NLSY79$class.worker.job.2002, c(-5, -4, -3, -2), rep("NA", 4))),
+  total.income.2004 = as.numeric(mapvalues(NLSY79$total.income.2004, c(-5, -4, -2, -1), rep(NA, 4))),
+  family.net.worth.2004 = as.factor(mapvalues(NLSY79$family.net.worth.2004, c(-5, -2, -1), rep("NA", 3))),
+  net.family.income.2004 = as.factor(mapvalues(NLSY79$net.family.income.2004, c(-5, -3, -2, -1), rep("NA", 4))),
+  spouse.partner.2004 = as.factor(mapvalues(NLSY79$spouse.partner.2004, c(-4), rep("NA"))),
+  age.first.marriage = as.factor(mapvalues(NLSY79$age.first.marriage, c(-3, -2, -1), rep("NA", 3))), 
+  spouse.partner.2010 = as.factor(mapvalues(NLSY79$spouse.partner.2010, c(-4), rep("NA"))),
+  family.net.worth.2008 = as.factor(mapvalues(NLSY79$family.net.worth.2008, c(-5, -1), rep("NA", 2))),
+  business.industry.type = as.factor(mapvalues(NLSY79$business.industry, c(-5, -4), rep("NA", 2))),
+  class.worker.job.2012 = as.factor(mapvalues(NLSY79$class.worker.job.2012, c(-5, -4, -2, -1), rep("NA", 4))),
+  biological.children = as.factor(mapvalues(NLSY79$biological.children, c(-5), rep("NA"))),
+  total.income.2012 = as.numeric(mapvalues(NLSY79$total.income.2012, c(-5, -4, -3, -2, -1), rep(NA, 5))),
+  net.family.income.2012 = as.factor(mapvalues(NLSY79$net.family.income.2012, c(-5, -2, -1), rep("NA", 3))),
+  marital.status.2012 = as.factor(mapvalues(NLSY79$marital.status.2012, c(-5, -2, -1), rep("NA", 3))), 
+  jobs.2012 = as.factor(mapvalues(NLSY79$jobs.2012, c(-5), rep("NA"))))
+
+NLSY79 <- transform(NLSY79, 
+race = as.factor(mapvalues(race, c(1, 2, 3), c("Hispanic","Black", "NonBlack NonHispanic"))),
+  sex = as.factor(mapvalues(sex, c(1, 2), c("Male","Female"))),
+  poverty.status.1978 = as.factor(mapvalues(poverty.status.1978, c(1, 0), c("In Poverty", "Not in Poverty"))),
+  class.worker.job.1983 = as.factor(mapvalues(class.worker.job.1983, c(1, 2, 3, 4), c("Private Company", "Government", "Self Employed", "Without Pay"))),
+  poverty.status.1987 = as.factor(mapvalues(poverty.status.1987, c(1, 0), c("In Poverty", "Not in Poverty"))),
+  class.worker.job.1989 = as.factor(mapvalues(class.worker.job.1989, c(1, 2, 3, 4), c("Private Company", "Government", "Self Employed", "Without Pay"))),
+  class.worker.job.1993 = as.factor(mapvalues(class.worker.job.1993, c(1, 2, 3, 4), c("Private Company", "Government", "Self Employed", "Without Pay"))), 
+  class.worker.job.2002 = as.factor(mapvalues(class.worker.job.2002, c(1, 2, 3, 4, 5), c("Government","Private For Profit", "Non Profit", "Self Employed", "Family Business"))), 
+  class.worker.job.2012 = as.factor(mapvalues(class.worker.job.2012, c(1, 2, 3, 4, 5), c("Government", "Private For Profit", "Non Profit", "Self Employed", "Working in Family Business"))), 
+  marital.status.2012 = as.factor(mapvalues(marital.status.2012, c(1, 2, 3), c("Never Married", "Married", "Other"))),
+ever.charged.illegal.activity = as.factor(mapvalues(ever.charged.illegal.activity, c(1, 0), c("Yes", "No"))),
+biological.children = as.factor(mapvalues(biological.children, c(-4), rep("valid skip"))))
+
+```
+
+
+```{r}
+nlsy_ed <- transform(nlsy_ed,
+  Reason.left.school = as.factor(mapvalues(nlsy_ed$Reason.left.school, c(-4, -3, -2, -1), rep("NA", 4))),
+   HGC = as.factor(mapvalues(nlsy_ed$HGC, c(-4, -3, -2), rep("NA", 3))),
+  ENROLLMTREV79 = as.factor(mapvalues(nlsy_ed$ENROLLMTREV79, c(-3), rep("NA"))),
+  Highest.grade.attended = as.factor(mapvalues(nlsy_ed$Highest.grade.attended, c(-5, -4), rep("NA", 2))),
+  HGC.survey.year = as.factor(mapvalues(nlsy_ed$HGC.survey.year, c(-5, -3), rep("NA", 2))),
+  ENROLLMTREV89 = as.factor(mapvalues(nlsy_ed$ENROLLMTREV89, c(-5, -3), rep("NA", 2))))
+
+
+nlsy_ed <- transform(nlsy_ed, 
+    Reason.left.school = as.factor(mapvalues(Reason.left.school, c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13), c("Received Degree", "GETTING MARRIED", "PREGNANCY", "OTHER REASONS DIDN'T LIKE SCHOOL", "POOR GRADES", "HOME RESPONSIBILITIES", "CHOSE TO WORK", "FINANCIAL DIFFICULTIES", "ENTERED MILITARY", "EXPELLED OR SUSPENDED", "SCHOOL TOO DANGEROUS", "MOVED AWAY FROM SCHOOL", "OTHER"))),
+    HGC = as.factor(mapvalues(HGC, c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 95), c("NONE","1ST GRADE", "2ND GRADE", "3RD GRADE", "4TH GRADE", "5TH GRADE", "6TH GRADE", "7TH GRADE", "8TH GRADE", "9TH GRADE", "10TH GRADE", "11TH GRADE", "12TH GRADE", "1ST YR COL", "2ND YR COL", "3RD YR COL", "4TH YR COL", "5TH YR COL", "6TH YR COL", "UNGRADED"))),
+    ENROLLMTREV79 = as.factor(mapvalues(ENROLLMTREV79, c(1, 2, 3, 4), c("NOT ENROLLED, COMPLETED LESS THAN 12TH GRADE", "ENROLLED IN HIGH SCHOOL", "ENROLLED IN COLLEGE", "NOT ENROLLED, HIGH SCHOOL GRADUATE"))),
+    Highest.grade.attended = as.factor(mapvalues(Highest.grade.attended, c(6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), c("6TH GRADE", "7TH GRADE", "8TH GRADE", "9TH GRADE", "10Th GRADE", "11TH GRADE", "12TH GRADE", "1ST YR COL", "2ND YR COL", "3RD YR COL", "4TH YR COL", "5TH YR COL", "6TH YR COL", "7TH YR COL", "8TH YR COL OR MORE"))),
+    HGC.survey.year = as.factor(mapvalues(HGC.survey.year, c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), c("NONE", "1ST GRADE", "2ND GRADE", "3RD GRADE", "4TH GRADE", "5TH GRADE", "6TH GRADE", "7TH GRADE", "8TH GRADE", "9TH GRADE", "10Th GRADE", "11TH GRADE", "12TH GRADE", "1ST YR COL", "2ND YR COL", "3RD YR COL", "4TH YR COL", "5TH YR COL", "6TH YR COL", "7TH YR COL", "8TH YR COL OR MORE"))),
+    ENROLLMTREV89 = as.factor(mapvalues(ENROLLMTREV89, c(1, 2, 3, 4), c("NOT ENROLLED, COMPLETED LESS THAN 12TH GRADE", "ENROLLED IN HIGH SCHOOL", "ENROLLED IN COLLEGE", "NOT ENROLLED, HIGH SCHOOL GRADUATE"))))
+```
+
+```{r}
+# The two different sets used are merged after this.
+
+nlsy_merged <- merge(NLSY79, nlsy_ed, by = "CASEID")
+
+nlsy <- data.frame(nlsy_merged)
+
+```
+
+```{r}
+# Check if the data transformed correctly
+str(nlsy)
+head(nlsy)
+
+```
+
+With this we have cleaned the data by renaming columns with descriptive names, replacing all the missing values with NA and merging two different different dataframes. Now, we have to extract relevant variables and create a data frame that can be used for our analysis.
+```{r}
+
+# Create a subset to run the important variables instead of using the whole dataset
+nlsy_sub <- subset(nlsy, select = c(total.income.2012, race, sex, Highest.grade.attended, class.worker.job.2012, ENROLLMTREV89, biological.children))
+
+```
+Lets check the averages of income between genders and race. Non-hispanic or non-black males have higher average income compared to other race category in year 2012
+```{r}
+kable(with(nlsy_sub, tapply(total.income.2012, INDEX = list(sex, race), FUN = mean, na.rm = TRUE)), format = "markdown")
+
+
+# Average income by sex
+ddply(nlsy_sub, ~ sex, summarize, mean.INCOME = mean(total.income.2012, na.rm = TRUE))
+`````
+
+The side by side Box plot makes it to easy to comapare the median and the variability of the incomes of males and females by race. The following graph shows 3 pairs of boxplots that are distinguished by race. We can observe that the male incomes are higher in all 3 races. However, the incomes for females are not very low. The three races referred here are Hispanic, Black, non-black or non-hispanic. Since the data was skewed, we took log to normalize the data.
+
+```{r}
+# Creating side by side box plot by ggplot function to compare total income in 2012 against different levels of race of males and females
+p <- ggplot(nlsy_sub, aes(factor(race), log(total.income.2012)))
+p + geom_boxplot(aes(fill = factor(sex)))
+```
+
+The Box plots show the variance that the variance in the income of men working in family business is really high. Men that are earning significantly higher incomes than women in non-profit organizations and self employed as well.
+
+```{r}
+# Creating side by side box plot by ggplot function to compare total income in year 2012 againt class of job between male and females
+p <- ggplot(nlsy_sub, aes(factor(class.worker.job.2012), log(total.income.2012)))
+p + geom_boxplot(aes(fill = factor(sex)))
+```
+
+We can see that only women have reported about biological children. Also, those that have valid skipped this question are only men and they have income higher than all the women that have reported to have kids.
+
+```{r}
+# Creating side by side box plot by ggplot function to compare total income in year 2012 againt biological children between male and females
+p <- ggplot(nlsy_sub, aes(factor(biological.children) , log(total.income.2012)))
+p + geom_boxplot(aes(fill = factor(sex)))
+# The result showed that only females have replied to this question and males skipped this question
+```
+
+Males that enrolled in 1989 also have higher income levels in 2012 than the females. This explains that it is also a significant factor for males to have higher income.
+
+```{r}
+p <- ggplot(nlsy_sub, aes(factor(ENROLLMTREV89) , log(total.income.2012)))
+p + geom_boxplot(aes(fill = factor(sex)))  
+
+```
+
+For every crime that a person commits, his income will be .12 less than the person that did not commit the crime
+
+```{r}
+# Total income is negatively correlated with illegal activity variable 
+with(nlsy, cor(times.charged.illegal.activity, total.income.2012, use = "complete"))
+```
+
+The variables significant in influencing the income are: Highest.grade.attended13, Highest.grade.attended14, Highest.grade.attended18, class.worker.job.20122, class.worker.job.20123, class.worker.job.20124, class.worker.job.20125, ENROLLMTREV893, ENROLLMTREV894, biological.children11. 
+
+```{r}
+
+# Run linear regression
+nlsy_sub[nlsy_sub == 0] <- NA
+is.na(nlsy_sub) <- do.call(cbind,lapply(nlsy_sub, is.infinite))
+nlsy_sub <- transform(nlsy_sub, total.income = log(total.income.2012), na.rm = TRUE)
+ total.income.lm <- lm(total.income ~ ., data = nlsy_sub)
+ total.income.lm
+summary(lm(total.income ~ ., data = nlsy_sub))
+
+
+```
+
+Missing values were replaced with NA using transform function and later ommitted. 
+I also included the education variables to understand the effect of education on the income.
+
+One of the major finding from this study is that the women are earning lesser incomes after they get married and when they have children. by this I would like to conclude that it might be because, they lose some time of work when they are pregnant. this is where male's overtake in terms of income growth. This can be supported by the fact that education is strongly correlated. which means people with higher education can earn more. But in this case they are not able to, this is primarily because male workers never lose time of work in their careers. 
+
+I am not confident enough about the analysis. I believe that it is quite preliminary and might need to use different regression methods to better understand the correlations between the variables. Also, I feel that I have considered very few variables and might be biased. 
